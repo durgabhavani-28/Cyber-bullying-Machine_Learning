@@ -1,0 +1,319 @@
+import numpy as np
+import pandas as pd
+from sklearn.svm import SVC
+from nltk.corpus import wordnet
+# Set dual parameter explicitly to suppress the warning
+# model = SVC(kernel='linear', dual=False)
+import string
+from nltk import pos_tag
+
+from sklearn.neighbors import KNeighborsClassifier  
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.svm import LinearSVC
+
+from sklearn.metrics import f1_score, accuracy_score, precision_score, recall_score
+#creates a confusion matrix
+from sklearn.metrics import confusion_matrix
+
+
+
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
+#GridSearchCV is a funtion which uses maths to find out the parameters for our dataset
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import train_test_split
+import nltk
+path='sus.csv'
+df = pd.read_csv(path)
+
+#looking at the first five rows using .head() function
+# df.head()
+
+#importing natural language Toolkit - A tool to preprocesses/clean text 
+
+#Checking that the latest nltk version is installed in the users local computer 
+#Warning: install all the libraries required for this project
+nltk.__version__
+# print(df.shape)
+df=df[pd.to_numeric(df['tagging'], errors='coerce').notnull()]
+#Droping all rows that contain Nan value 
+df = df.dropna(axis=0)
+#Since the shape is the same there are no missing valus in our dataset
+# print(df.shape)
+
+#pos_tag is a tool that tags the part of speech to the word(POS = Part of Speech)
+#example: tagging the word 'drinking' as verb
+
+#function for removing punctuations
+def tokenize_remove_punctuation(text):
+  clean_text = []         #creaating an empty list to store the cleaned text
+  text = text.split(" ")  #spliting all words in a sentence separated by " " and storing them in a list named 'text'
+  for word in text:
+    word = list(word)  #spliting all words into alphabets
+    new_word = []      #creaating an empty list to store the new word after removing puntuations
+    
+    # spliting the words into alphabets is used because it will convert words like 'reading?' into 'reading'
+    for c in word:
+      if c not in string.punctuation:     #string.puntuation is a list og all puntuation marks , example :@!$%&?, etc.
+        new_word.append(c)
+      word = "".join(new_word)  #joing the alphabets to create the word after removing all puntuations
+    clean_text.append(word)     #storing the word in the list named 'clean_text' to create the list of words in the sentence
+  return clean_text
+# using a sample sentence to see whether the funtion works well or not 
+# NOTE: We have only created the functions till now. We haven't done anythong with our dataset till now.
+trial_text = tokenize_remove_punctuation("hello @anyone reading? wt is the name of am in that this  ??!@")
+# print(trial_text)
+# import nltk
+#downloads the list of stopwords
+nltk.download('stopwords')
+
+#'stopwords' is a list of words that have nearly no value in the sentence
+#example : 'I am a boy' is converted into 'boy'
+#here words like 'I', 'am', 'a' ;these words have very less comtribution to the sentence#storing all the stopwords in the list named 'stopwords' 
+stopwords = nltk.corpus.stopwords.words('english')  #storing only english stopwords , there are stopwords for other language also such as chinese and french
+
+# Function to remove all the stopwords from the sentence
+def remove_stopwords(text):
+  clean_text = []
+  for word in text:
+    if word not in stopwords:
+      clean_text.append(word)
+  return clean_text
+# using a sample sentence to see whether the funtion works well or not
+remove_stopwords(trial_text)
+remove_stopwords(trial_text)
+['hello', 'anyone', 'reading', 'wt', 'name', [], '']
+#tagging all the words according o their part of speech
+def pos_tagging(text):
+    try:
+        tagged = nltk.pos_tag(text)
+        return tagged
+    except Excepton as e:
+        print(e)
+
+
+#wordnet is a tool that reads that reads the tagging and returns the part of speech 
+def get_wordnet(pos_tag):
+  if pos_tag.startswith('J'):
+    return wordnet.ADJ
+  elif pos_tag.startswith('V'):
+    return wordnet.VERB
+  elif pos_tag.startswith('N'):
+    return wordnet.NOUN
+  elif pos_tag.startswith('R'):
+    return wordnet.ADV
+  else:
+    return wordnet.NOUN
+from nltk.stem import WordNetLemmatizer
+#WordLemmatizer is a tool that converts word into root word
+#Example: historical(word) is converted into history(root-word)
+
+#Now we will create a function that uses all the functions that we have created above
+
+def clean_text(text):
+  text = str(text)
+  #Converting text to lower-case
+  text = text.lower()
+  #tokenize and remove punctuations from the text
+  text = tokenize_remove_punctuation(text)
+  #remove words containing numericals
+  text = [word for word in text if not any(c.isdigit() for c in word)]
+  #remove stopwords
+  text = remove_stopwords(text)
+  #remove empty tokens
+  text = [ t for t in text if len(t) > 0]
+  #pos tagging
+  pos_tags = pos_tagging(text)
+  #Lemmatize text
+  text = [WordNetLemmatizer().lemmatize(t[0],get_wordnet(t[1])) for t in pos_tags]
+  #remove words with only one letter
+  text = [ t for t in text if len(t)>1]
+  #join all words
+  text = " ".join(text)
+  return text
+#don't know what is 'averaged_perceptron_tagger'
+#don't know why devansh downloaded it 
+nltk.download('averaged_perceptron_tagger')
+
+#Downloading the wordnet tool
+nltk.download('wordnet')
+clean_text("What is y0ur name? THis is a cat!! 12?")
+df['tagging']=df['tagging'].astype(str).astype(int)
+# df.info()
+#reseting the index of rows
+# Index gets unordered if we drop some rows in our dataset(Example while using dropna() function)
+df.reset_index(inplace = True, drop = True)
+#this line of code will now be used to pply the functions on each sentences in the 'comments' column
+#This will take time as it will use the 'clean_text' function on all the sentences in our dataset
+#the .map() function applies the function at each sentences in the 'comments' column
+df['Processed_Comment'] = df['comments'].map(clean_text)
+#Splitting dataset for training and testing(80:20)
+
+
+#train_test_split is a funtion that splits dataset into two parts 
+#80%(for training the model) and 20%(for testing the model)
+#This function returns 4 values 
+# 1 'Processed_comment' for training
+# 2 'Processed_comment' for testing
+# 3 'tagging' for training
+# 3 'tagging' for testing
+X_train, X_test, y_train, y_test = train_test_split(df['Processed_Comment'], 
+                                                    df['tagging'], 
+                                                    random_state=42,test_size=0.20)
+
+#random state is used to shuffle the dataset
+#test_size=0.20 means that 20% of the dataset is to be allocated for testing of the model
+#Creating a bag of words from training data
+count_vector = CountVectorizer()
+X_train = count_vector.fit_transform(X_train)
+X_test = count_vector.transform(X_test)
+
+#vectorizing means giving value to the words in the sentence according to a formula
+#This value tells us how much the word contributes in the sentence to be a cyberbulling comment 
+#I guess this returns a table
+#gives the number of columns in the vectorized table 
+# len(count_vector.vocabulary_)
+# 13816
+data =[]
+#Importing all the terms by which we get accuracy of our model
+#NOTE:we haven't trained our model yet 
+#storing the empty KNN model in 'model1' with the best parameters provided by GridSearchCV
+model1= KNeighborsClassifier(n_neighbors=23, metric='euclidean',weights = 'distance')  
+#Training the empty model with our training dataset
+model1.fit(X_train, y_train)
+#Checking the accuracy of our trained model with the testing dataset
+predictions_test = model1.predict(X_test)
+predictions_train = model1.predict(X_train)
+
+# Creating a temp list to store the accuracy terms 
+#This temp list will later be stored in the 'data' list which will be used to compared the accuracy of each ML models in the summary 
+# temp = ['KNeighborsClassifier']
+# temp.append(accuracy_score(predictions_train,y_train))  #accuracy_score  for training data 
+# temp.append(recall_score(predictions_train,y_train))    #recall_score    for training data
+# temp.append(f1_score(predictions_train,y_train))        #f1_score        for training data
+# temp.append(precision_score(predictions_train,y_train)) #precision_score for training data
+# temp.append(accuracy_score(predictions_test,y_test))    #accuracy_score  for testing data
+# temp.append(recall_score(predictions_test,y_test))      #recall_score    for testing data
+# temp.append(f1_score(predictions_test,y_test))          #f1_score        for testing data
+# temp.append(precision_score(predictions_test,y_test))   #precision_score for testing data
+
+# #Storing all the accuracy terms in 'data' list
+# data.append(temp)
+# confusion = confusion_matrix(predictions_test,y_test)
+# print(confusion)
+# Accessing the accuracy values from the 'temp' list
+# training_accuracy = temp[1]
+# testing_accuracy = temp[5]
+
+# Printing the accuracy
+# print("Training Accuracy:", training_accuracy)
+# print("Testing Accuracy:", testing_accuracy)
+
+
+
+model2 = LogisticRegression(C=10, random_state=42, solver='lbfgs', multi_class='ovr',max_iter=1000000)
+model2.fit(X_train, y_train)
+LogisticRegression(C=10, max_iter=1000000, multi_class='ovr', random_state=42)
+predictions_test = model2.predict(X_test)
+predictions_train = model2.predict(X_train)
+temp = ['LogisticRegression']
+temp.append(accuracy_score(predictions_train,y_train))
+temp.append(recall_score(predictions_train,y_train))
+temp.append(f1_score(predictions_train,y_train))
+temp.append(precision_score(predictions_train,y_train))
+temp.append(accuracy_score(predictions_test,y_test))
+temp.append(recall_score(predictions_test,y_test))
+temp.append(f1_score(predictions_test,y_test))
+temp.append(precision_score(predictions_test,y_test))
+data.append(temp)
+
+confusion = confusion_matrix(predictions_test,y_test)
+# print(confusion)
+# Preprocess your input text
+
+
+# Accessing the accuracy values from the 'data' list for K Nearest Neighbors (KNN) Classifier
+knn_training_accuracy = data[0][1]
+knn_testing_accuracy = data[0][5]
+
+# # Printing the accuracies for KNN Classifier
+# print("K Nearest Neighbors (KNN) Classifier:")
+# print("Training Accuracy:", knn_training_accuracy)
+# print("Testing Accuracy:", knn_testing_accuracy)
+
+# Accessing the accuracy values from the 'data' list for Logistic Regression
+logistic_training_accuracy = data[1][1]
+logistic_testing_accuracy = data[1][5]
+
+# # Printing the accuracies for Logistic Regression
+# print("\nLogistic Regression:")
+# print("Training Accuracy:", logistic_training_accuracy)
+# print("Testing Accuracy:", logistic_testing_accuracy)
+
+
+# model3 = MultinomialNB(alpha=0.5, fit_prior=True)  # Set fit_prior directly to a boolean value
+# model3.fit(X_train, y_train)
+
+# predictions_test = model3.predict(X_test)
+# predictions_train = model3.predict(X_train)
+# temp = ['MultinomialNB']
+# temp.append(accuracy_score(predictions_train, y_train))
+# temp.append(recall_score(predictions_train, y_train))
+# temp.append(f1_score(predictions_train, y_train))
+# temp.append(precision_score(predictions_train, y_train))
+# temp.append(accuracy_score(predictions_test, y_test))
+# temp.append(recall_score(predictions_test, y_test))
+# temp.append(f1_score(predictions_test, y_test))
+# temp.append(precision_score(predictions_test, y_test))
+# data.append(temp)
+# confusion = confusion_matrix(predictions_test, y_test)
+# print(confusion)
+
+# Predictions using KNN Classifier
+# print("\nPredictions using KNN Classifier:")
+# for i in range(5):
+#     input_text = input()
+#     preprocessed_input = clean_text(input_text)
+#     input_vector = count_vector.transform([preprocessed_input])
+#     predicted_category = model1.predict(input_vector)
+#     print("Predicted Category:", predicted_category[0])
+
+# # Predictions using Logistic Regression
+# print("\nPredictions using Logistic Regression:")
+# for i in range(5):
+#     input_text = input()
+#     preprocessed_input = clean_text(input_text)
+#     input_vector = count_vector.transform([preprocessed_input])
+#     predicted_category = model2.predict(input_vector)
+#     print("Predicted Category:", predicted_category[0])
+
+# for i in range(5):
+#     input_text = input()
+#     preprocessed_input = clean_text(input_text)  # Assuming you already defined the 'clean_text' function
+
+#     # Vectorize the preprocessed input text
+#     input_vector = count_vector.transform([preprocessed_input])  # 'count_vector' is the vectorizer you used during training
+
+#     # Use the trained model to predict the category of the vectorized input text
+#     predicted_category = model1.predict(input_vector)  # 'model1' is the trained model
+
+#     # Print the predicted category
+#     print("Predicted Category:", predicted_category[0])
+# Predictions using both models
+# print("\nPredictions using both models:")
+# for i in range(5):
+#     input_text = input("Enter your input text: ")
+#     preprocessed_input = clean_text(input_text)
+#     input_vector = count_vector.transform([preprocessed_input])
+
+#     # Predict using KNN Classifier
+#     knn_predicted_category = model1.predict(input_vector)
+#     print("KNN Classifier Predicted Category:", knn_predicted_category[0])
+
+#     # Predict using Logistic Regression
+#     logistic_predicted_category = model2.predict(input_vector)
+#     print("Logistic Regression Predicted Category:", logistic_predicted_category[0])
+    
+    # naive_bayes_predicted_category =model3.predict(input_vector)
+    # print("Naive Bayes Predicted Category:", naive_bayes_predicted_category[0])
+
